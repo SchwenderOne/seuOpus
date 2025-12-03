@@ -1,0 +1,57 @@
+{
+    "tile_size": {
+        "width": 32,
+        "height": 32
+    },
+    "tilesets": [
+        {
+            "id": "main_tileset",
+            "file": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/2 Location/1 Tiles/Tileset.png",
+            "grid": {
+                "rows": 5,
+                "cols": 8
+            },
+            "description": "Main environment tiles. 32x32 grid."
+        }
+    ],
+    "objects": [
+        {
+            "id": "altar",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/2 Location/2 Objects",
+            "files": [
+                "Altar1.png",
+                "Altar2.png"
+            ],
+            "note": "Static altar images."
+        },
+        {
+            "id": "animated_altar",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/2 Location/3 Animated objects",
+            "animations": {
+                "idle": {
+                    "file": "Altar_Idle.png",
+                    "frames": 6,
+                    "note": "6 frames (288x48)."
+                },
+                "start": {
+                    "file": "Altar_Start.png",
+                    "frames": 4
+                }
+            }
+        },
+        {
+            "id": "animated_portal",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/2 Location/3 Animated objects",
+            "animations": {
+                "idle": {
+                    "file": "Portal1_Idle.png",
+                    "frames": 4
+                },
+                "start": {
+                    "file": "Portal1_Start.png",
+                    "frames": 4
+                }
+            }
+        }
+    ]
+}

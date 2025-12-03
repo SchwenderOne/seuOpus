@@ -1,0 +1,155 @@
+{
+    "enemies": [
+        {
+            "id": "enemy_type_1",
+            "description": "Goblin (Small, green, spear-wielding)",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/3 Enemies/1",
+            "frame_size": {
+                "width": 48,
+                "height": 48
+            },
+            "animations": {
+                "run": {
+                    "files": [
+                        "RunSD.png",
+                        "RunSU.png"
+                    ],
+                    "frames": 6,
+                    "note": "SD likely Side-Down, SU likely Side-Up."
+                },
+                "death": {
+                    "files": [
+                        "DeathSD.png",
+                        "DeathSU.png"
+                    ],
+                    "frames": 6
+                }
+            }
+        },
+        {
+            "id": "enemy_type_2",
+            "description": "Skeleton (Undead warrior with sword and shield)",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/3 Enemies/2",
+            "frame_size": {
+                "width": 48,
+                "height": 48
+            },
+            "animations": {
+                "run": {
+                    "files": [
+                        "RunSD.png",
+                        "RunSU.png"
+                    ],
+                    "frames": 6
+                },
+                "death": {
+                    "files": [
+                        "DeathSD.png",
+                        "DeathSU.png"
+                    ],
+                    "frames": 6
+                }
+            }
+        },
+        {
+            "id": "enemy_type_3",
+            "description": "Floating Eye (Beholder-like creature)",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/3 Enemies/3",
+            "frame_size": {
+                "width": 48,
+                "height": 48
+            },
+            "animations": {
+                "run": {
+                    "files": [
+                        "RunSD.png",
+                        "RunSU.png"
+                    ],
+                    "frames": 6
+                },
+                "death": {
+                    "files": [
+                        "DeathSD.png",
+                        "DeathSU.png"
+                    ],
+                    "frames": 6
+                }
+            }
+        },
+        {
+            "id": "enemy_type_4",
+            "description": "Mushroom (Walking fungus)",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/3 Enemies/4",
+            "frame_size": {
+                "width": 48,
+                "height": 48
+            },
+            "animations": {
+                "run": {
+                    "files": [
+                        "RunSD.png",
+                        "RunSU.png"
+                    ],
+                    "frames": 6
+                },
+                "death": {
+                    "files": [
+                        "DeathSD.png",
+                        "DeathSU.png"
+                    ],
+                    "frames": 6
+                }
+            }
+        },
+        {
+            "id": "enemy_type_5",
+            "description": "Slime (Green blob)",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/3 Enemies/5",
+            "frame_size": {
+                "width": 48,
+                "height": 48
+            },
+            "animations": {
+                "run": {
+                    "files": [
+                        "RunSD.png",
+                        "RunSU.png"
+                    ],
+                    "frames": 6
+                },
+                "death": {
+                    "files": [
+                        "DeathSD.png",
+                        "DeathSU.png"
+                    ],
+                    "frames": 6
+                }
+            }
+        },
+        {
+            "id": "enemy_type_6",
+            "description": "Bat (Flying creature)",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/3 Enemies/6",
+            "frame_size": {
+                "width": 48,
+                "height": 48
+            },
+            "animations": {
+                "run": {
+                    "files": [
+                        "RunSD.png",
+                        "RunSU.png"
+                    ],
+                    "frames": 6
+                },
+                "death": {
+                    "files": [
+                        "DeathSD.png",
+                        "DeathSU.png"
+                    ],
+                    "frames": 6
+                }
+            }
+        }
+    ]
+}

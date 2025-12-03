@@ -1,0 +1,11 @@
+{
+  "name": "Roguelike Shoot 'em Up Asset Kit",
+  "description": "Master index for the analyzed asset kit.",
+  "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit",
+  "categories": {
+    "characters": "assets/characters/characters.json",
+    "tiles": "assets/tiles/tilesets.json",
+    "enemies": "assets/enemies/enemies.json",
+    "ui": "assets/ui/ui.json"
+  }
+}

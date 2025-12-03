@@ -1,0 +1,35 @@
+{
+    "ui_grid": {
+        "width": 32,
+        "height": 32
+    },
+    "interface": [
+        {
+            "id": "interface_tileset",
+            "file": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/4 GUI/1 Interface/Tileset.png",
+            "description": "Main UI tileset (panels, frames).",
+            "note": "Likely 32x32 tiles based on file naming."
+        }
+    ],
+    "buttons": [
+        {
+            "id": "button_tileset",
+            "file": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/4 GUI/2 Buttons/ButtonSet.png",
+            "description": "Button states and icons."
+        }
+    ],
+    "icons": [
+        {
+            "id": "icons_generic",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/4 GUI/3 Icons",
+            "note": "Various icons for inventory/skills."
+        }
+    ],
+    "bars": [
+        {
+            "id": "bars_generic",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/4 GUI/4 Bars",
+            "note": "Health/Mana bars."
+        }
+    ]
+}

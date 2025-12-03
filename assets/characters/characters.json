@@ -1,0 +1,102 @@
+{
+    "characters": [
+        {
+            "id": "main_character",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/1 Main Character/1 Character",
+            "frame_size": {
+                "width": 48,
+                "height": 48
+            },
+            "animations": {
+                "walk": {
+                    "files": [
+                        "Walk1.png",
+                        "Walk2.png",
+                        "Walk3.png"
+                    ],
+                    "frames_per_file": 4,
+                    "note": "Files likely correspond to directions (e.g. 1=Down, 2=Side, 3=Up)"
+                },
+                "death": {
+                    "files": [
+                        "Death1.png",
+                        "Death2.png",
+                        "Death3.png"
+                    ],
+                    "frames_per_file": 4
+                }
+            }
+        }
+    ],
+    "weapons": [
+        {
+            "id": "weapon_generic",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/1 Main Character/2 Weapons",
+            "files": [
+                "1.png",
+                "2.png",
+                "3.png",
+                "4.png",
+                "5.png",
+                "6.png",
+                "7.png",
+                "8.png",
+                "9.png"
+            ],
+            "frame_size": {
+                "width": 48,
+                "height": 48
+            },
+            "frames": 9,
+            "note": "Weapons are 432px wide strips (9 frames of 48px)."
+        }
+    ],
+    "projectiles": [
+        {
+            "id": "projectile_generic",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/1 Main Character/2 Weapons/Projectiles",
+            "files": [
+                "1.png",
+                "2.png",
+                "3.png",
+                "4.png",
+                "5.png",
+                "6.png",
+                "7.png",
+                "8.png",
+                "9.png",
+                "10.png",
+                "11.png",
+                "12.png",
+                "13.png",
+                "14.png",
+                "15.png",
+                "16.png",
+                "17.png",
+                "18.png",
+                "19.png",
+                "20.png",
+                "21.png",
+                "22.png"
+            ],
+            "note": "Projectiles vary in size, e.g. 1.png is 10x10."
+        }
+    ],
+    "effects": [
+        {
+            "id": "effect_generic",
+            "base_path": "craftpix-net-814823-free-roguelike-shoot-em-up-pixel-art-game-kit/1 Main Character/3 Effects",
+            "files": [
+                "1_1.png",
+                "1_2.png",
+                "1_3.png"
+            ],
+            "frame_size": {
+                "width": 96,
+                "height": 96
+            },
+            "frames": 6,
+            "note": "Effects are strips of 6 frames (e.g. 576x96)."
+        }
+    ]
+}
