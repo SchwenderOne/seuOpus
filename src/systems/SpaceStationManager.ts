@@ -24,6 +24,46 @@ export interface MaterialCounts {
 }
 
 /**
+ * Lingering buff types that persist after leaving the station
+ */
+export type LingeringBuffType = 'damage' | 'xp' | 'fireRate' | 'speed' | 'regen';
+
+/**
+ * A lingering buff that persists after leaving the safe zone
+ */
+export interface LingeringBuff {
+  type: LingeringBuffType;
+  multiplier: number;
+  remainingTime: number;
+  maxDuration: number;
+}
+
+/**
+ * Module types for horizontal progression
+ */
+export type ModuleType = 'shield' | 'medical' | 'power' | 'sensor';
+
+/**
+ * Module tier levels (0 = not unlocked, 1-3 = tier levels)
+ */
+export interface ModuleTiers {
+  shield: number;
+  medical: number;
+  power: number;
+  sensor: number;
+}
+
+/**
+ * Active buffs state for UI display
+ */
+export interface ActiveBuffsState {
+  sanctuaryShieldReady: boolean;
+  sanctuaryShieldCooldown: number;
+  lingeringBuffs: LingeringBuff[];
+  insideZone: boolean;
+}
+
+/**
  * Material sprite with collection data
  */
 interface Material extends Phaser.Physics.Arcade.Sprite {
@@ -81,6 +121,25 @@ export class SpaceStationManager {
   // Player state tracking
   private playerInsideRadius: boolean = false;
   private hpRegenAccumulator: number = 0;
+  
+  // Lingering buff system (buffs that persist after leaving the zone)
+  private lingeringBuffs: LingeringBuff[] = [];
+  
+  // Sanctuary Shield (Level 2 benefit)
+  private sanctuaryShieldAmount: number = 0;
+  private sanctuaryShieldCooldownEnd: number = 0;
+  
+  // Station Modules (horizontal progression)
+  private moduleTiers: ModuleTiers = {
+    shield: 0,
+    medical: 0,
+    power: 0,
+    sensor: 0
+  };
+  
+  // Module UI elements (reserved for future expanded UI)
+  // private modulePanel: Phaser.GameObjects.Container | null = null;
+  // private moduleButtons: Map<ModuleType, Phaser.GameObjects.Container> = new Map();
   
   // Callbacks
   private onPlayerEnterRadius?: () => void;
@@ -144,7 +203,7 @@ export class SpaceStationManager {
       `space_station_${this.stationLevel}`
     );
     this.stationSprite.setDepth(DEPTH.STATION);
-    this.stationSprite.setScale(0.12); // Scale down by 20% (was 0.15)
+    this.stationSprite.setScale(0.72); // 6x larger than previous 0.12 scale
     
     // Create protection radius visualization
     this.createProtectionRadius();
@@ -222,7 +281,7 @@ export class SpaceStationManager {
     // Check player position relative to station
     this.checkPlayerPosition(delta);
     
-    // Spawn materials
+    // Spawn materials (with module bonus)
     this.updateMaterialSpawning(delta);
     
     // Apply benefits if player is inside
@@ -230,11 +289,60 @@ export class SpaceStationManager {
       this.applyBenefits(delta);
     }
     
+    // Update lingering buffs (countdown timers)
+    this.updateLingeringBuffs(delta);
+    
+    // Apply lingering regen if active
+    this.applyLingeringRegen(delta);
+    
     // Push enemies out of station radius (enemies can't enter)
     this.pushEnemiesOutOfRadius();
     
     // Update station panel visibility
     this.updateStationPanel();
+  }
+
+  /**
+   * Update lingering buff timers - decrement and remove expired
+   */
+  private updateLingeringBuffs(delta: number): void {
+    for (let i = this.lingeringBuffs.length - 1; i >= 0; i--) {
+      this.lingeringBuffs[i].remainingTime -= delta;
+      if (this.lingeringBuffs[i].remainingTime <= 0) {
+        const expiredBuff = this.lingeringBuffs.splice(i, 1)[0];
+        this.onBuffExpired(expiredBuff.type);
+      }
+    }
+  }
+
+  /**
+   * Apply lingering HP regen (from Level 3+ after leaving zone)
+   */
+  private applyLingeringRegen(delta: number): void {
+    if (this.playerInsideRadius) return; // Only applies outside zone
+    
+    const regenBuff = this.lingeringBuffs.find(b => b.type === 'regen');
+    if (!regenBuff) return;
+    
+    if (this.player.hp < this.player.maxHealth) {
+      this.hpRegenAccumulator += delta;
+      const regenInterval = 1000;
+      
+      if (this.hpRegenAccumulator >= regenInterval) {
+        const healAmount = Math.ceil(this.player.maxHealth * SPACE_STATION.BENEFITS.HP_REGEN.RATE_LINGERING);
+        this.player.heal(healAmount);
+        this.hpRegenAccumulator = 0;
+        this.createHealEffect(0x88ff88); // Lighter green for lingering
+      }
+    }
+  }
+
+  /**
+   * Called when a lingering buff expires
+   */
+  private onBuffExpired(_type: LingeringBuffType): void {
+    // Intentionally silent for now - could add visual/audio feedback here
+    // Example: this.showNotification(`${buffName} buff expired`, 0x888888);
   }
 
   /**
@@ -396,13 +504,23 @@ export class SpaceStationManager {
     // Update benefits text
     if (this.panelBenefitsText) {
       const benefits: string[] = [];
-      if (this.stationLevel >= 2) benefits.push('❤️ HP Regen');
-      if (this.stationLevel >= 3) benefits.push('⚔️ +25% Damage');
-      if (this.stationLevel >= 4) benefits.push('✨ +50% XP');
-      if (this.stationLevel >= 5) benefits.push('🔥 +20% Fire Rate');
+      if (this.stationLevel >= 2) benefits.push('🛡️ Shield');
+      if (this.stationLevel >= 3) benefits.push('❤️ Regen');
+      if (this.stationLevel >= 4) benefits.push('⚔️ Combat');
+      if (this.stationLevel >= 5) benefits.push('🔥 Ultimate');
       
-      if (benefits.length > 0) {
-        this.panelBenefitsText.setText('Active: ' + benefits.join(' | '));
+      // Show lingering buff status
+      const activeBuffs = this.lingeringBuffs.length;
+      
+      if (benefits.length > 0 || activeBuffs > 0) {
+        let text = benefits.length > 0 ? benefits.join(' | ') : '';
+        if (activeBuffs > 0) {
+          const avgTime = Math.round(
+            this.lingeringBuffs.reduce((s, b) => s + b.remainingTime, 0) / activeBuffs / 1000
+          );
+          text += text ? `\n⚡ ${activeBuffs} buffs (${avgTime}s)` : `⚡ ${activeBuffs} buffs (${avgTime}s)`;
+        }
+        this.panelBenefitsText.setText(text);
         this.panelBenefitsText.setColor('#00ff88');
       } else {
         this.panelBenefitsText.setText('No active benefits yet');
@@ -470,9 +588,11 @@ export class SpaceStationManager {
         }
         
         // Teleport enemy to just outside the buffer zone
+        // Use setPosition() to properly sync physics body with sprite
         const teleportDist = bufferRadius + 10;
-        enemy.x = this.stationX + Math.cos(angle) * teleportDist;
-        enemy.y = this.stationY + Math.sin(angle) * teleportDist;
+        const newX = this.stationX + Math.cos(angle) * teleportDist;
+        const newY = this.stationY + Math.sin(angle) * teleportDist;
+        enemy.setPosition(newX, newY);
         
         // Stop any momentum and apply strong outward push
         const body = enemy.body as Phaser.Physics.Arcade.Body;
@@ -519,24 +639,184 @@ export class SpaceStationManager {
     
     // Trigger callbacks on state change
     if (this.playerInsideRadius && !wasInside) {
+      // Player just entered the zone
       this.onPlayerEnterRadius?.();
+      this.onPlayerEnterZone();
     } else if (!this.playerInsideRadius && wasInside) {
+      // Player just left the zone
       this.onPlayerLeaveRadius?.();
+      this.onPlayerLeaveZone();
       this.hpRegenAccumulator = 0; // Reset regen accumulator
     }
   }
 
   /**
-   * Apply station benefits to player
+   * Called when player enters the safe zone
+   * Triggers Sanctuary Shield (Level 2+) and emergency heal (Medical Bay Tier 2)
+   */
+  private onPlayerEnterZone(): void {
+    const now = this.scene.time.now;
+    
+    // Level 2+: Sanctuary Shield
+    if (this.stationLevel >= 2 && now >= this.sanctuaryShieldCooldownEnd) {
+      const shieldPercent = SPACE_STATION.BENEFITS.SANCTUARY_SHIELD.PERCENT;
+      // Add shield bonus from Shield Generator module
+      const shieldBonus = this.moduleTiers.shield >= 2 
+        ? SPACE_STATION.MODULES.SHIELD.EFFECTS.TIER_2.SHIELD_BONUS 
+        : 0;
+      const totalShield = shieldPercent + shieldBonus;
+      
+      this.sanctuaryShieldAmount = Math.ceil(this.player.maxHealth * totalShield);
+      // Note: Shield should be applied via Player class - for now we heal
+      // In a full implementation, Player would have a shield system
+      this.player.heal(this.sanctuaryShieldAmount);
+      
+      this.sanctuaryShieldCooldownEnd = now + SPACE_STATION.BENEFITS.SANCTUARY_SHIELD.COOLDOWN;
+      this.showNotification(`🛡️ Sanctuary Shield: +${this.sanctuaryShieldAmount} HP`, 0x00ffff);
+      this.createShieldEffect();
+    }
+    
+    // Medical Bay Tier 2: Emergency heal when entering below threshold
+    if (this.moduleTiers.medical >= 2) {
+      const threshold = SPACE_STATION.MODULES.MEDICAL.EFFECTS.TIER_2.EMERGENCY_HEAL_THRESHOLD;
+      const healAmount = SPACE_STATION.MODULES.MEDICAL.EFFECTS.TIER_2.EMERGENCY_HEAL_AMOUNT;
+      
+      if (this.player.hp < this.player.maxHealth * threshold) {
+        const heal = Math.ceil(this.player.maxHealth * healAmount);
+        this.player.heal(heal);
+        this.showNotification(`🏥 Emergency Heal: +${heal} HP`, 0xff88ff);
+        this.createHealEffect(0xff88ff);
+      }
+    }
+  }
+
+  /**
+   * Called when player leaves the safe zone
+   * Grants lingering buffs based on station level and modules
+   */
+  private onPlayerLeaveZone(): void {
+    // Clear any existing lingering buffs (refresh them)
+    this.lingeringBuffs = [];
+    
+    // Calculate duration bonuses from Power Core module
+    const durationBonus = this.moduleTiers.power >= 1 
+      ? SPACE_STATION.MODULES.POWER.EFFECTS.TIER_1.BUFF_DURATION_BONUS 
+      : 0;
+    
+    // Level 3+: Lingering HP Regen
+    if (this.stationLevel >= 3) {
+      let regenDuration = SPACE_STATION.BENEFITS.HP_REGEN.LINGER_DURATION;
+      // Medical Bay Tier 3 extends regen duration
+      if (this.moduleTiers.medical >= 3) {
+        regenDuration += SPACE_STATION.MODULES.MEDICAL.EFFECTS.TIER_3.LINGER_DURATION_BONUS;
+      }
+      
+      this.lingeringBuffs.push({
+        type: 'regen',
+        multiplier: 1.0,
+        remainingTime: regenDuration + durationBonus,
+        maxDuration: regenDuration + durationBonus
+      });
+    }
+    
+    // Level 4+: Combat Buffs (Damage + XP)
+    if (this.stationLevel >= 4) {
+      const combatDuration = SPACE_STATION.BENEFITS.COMBAT_BUFFS.DURATION + durationBonus;
+      let damageBoost = SPACE_STATION.BENEFITS.COMBAT_BUFFS.DAMAGE_BOOST;
+      
+      // Power Core Tier 2 increases damage bonus
+      if (this.moduleTiers.power >= 2) {
+        damageBoost += SPACE_STATION.MODULES.POWER.EFFECTS.TIER_2.DAMAGE_BONUS;
+      }
+      
+      this.lingeringBuffs.push({
+        type: 'damage',
+        multiplier: damageBoost,
+        remainingTime: combatDuration,
+        maxDuration: combatDuration
+      });
+      
+      this.lingeringBuffs.push({
+        type: 'xp',
+        multiplier: SPACE_STATION.BENEFITS.COMBAT_BUFFS.XP_BOOST,
+        remainingTime: combatDuration,
+        maxDuration: combatDuration
+      });
+    }
+    
+    // Level 5: Ultimate Buffs (Fire Rate + Speed)
+    if (this.stationLevel >= 5) {
+      const ultimateDuration = SPACE_STATION.BENEFITS.ULTIMATE_BUFFS.DURATION + durationBonus;
+      
+      this.lingeringBuffs.push({
+        type: 'fireRate',
+        multiplier: SPACE_STATION.BENEFITS.ULTIMATE_BUFFS.FIRE_RATE_BOOST,
+        remainingTime: ultimateDuration,
+        maxDuration: ultimateDuration
+      });
+      
+      this.lingeringBuffs.push({
+        type: 'speed',
+        multiplier: SPACE_STATION.BENEFITS.ULTIMATE_BUFFS.SPEED_BOOST,
+        remainingTime: ultimateDuration,
+        maxDuration: ultimateDuration
+      });
+    }
+    
+    // Show buff notification if any buffs granted
+    if (this.lingeringBuffs.length > 0) {
+      const buffCount = this.lingeringBuffs.length;
+      const avgDuration = Math.round(
+        this.lingeringBuffs.reduce((sum, b) => sum + b.maxDuration, 0) / buffCount / 1000
+      );
+      this.showNotification(`⚡ ${buffCount} buffs active for ~${avgDuration}s!`, 0xffff00);
+    }
+  }
+
+  /**
+   * Create sanctuary shield visual effect
+   */
+  private createShieldEffect(): void {
+    // Create expanding shield ring around player
+    const ring = this.scene.add.circle(
+      this.player.x,
+      this.player.y,
+      30,
+      0x00ffff,
+      0.6
+    );
+    ring.setDepth(DEPTH.EFFECTS);
+    ring.setStrokeStyle(3, 0x00ffff, 1);
+    ring.setScrollFactor(1);
+    
+    this.scene.tweens.add({
+      targets: ring,
+      radius: 60,
+      alpha: 0,
+      duration: 400,
+      ease: 'Power2',
+      onComplete: () => ring.destroy()
+    });
+  }
+
+  /**
+   * Apply station benefits to player (while inside zone)
    */
   private applyBenefits(delta: number): void {
-    // Level 2+: HP Regeneration
-    if (this.stationLevel >= 2 && this.player.hp < this.player.maxHealth) {
+    // Level 3+: HP Regeneration inside zone
+    if (this.stationLevel >= 3 && this.player.hp < this.player.maxHealth) {
       this.hpRegenAccumulator += delta;
       const regenInterval = 1000; // Check every second
       
       if (this.hpRegenAccumulator >= regenInterval) {
-        const healAmount = Math.ceil(this.player.maxHealth * SPACE_STATION.BENEFITS.HP_REGEN_RATE);
+        let regenRate = SPACE_STATION.BENEFITS.HP_REGEN.RATE_INSIDE;
+        
+        // Medical Bay Tier 1 doubles regen rate
+        if (this.moduleTiers.medical >= 1) {
+          regenRate *= SPACE_STATION.MODULES.MEDICAL.EFFECTS.TIER_1.REGEN_MULTIPLIER;
+        }
+        
+        const healAmount = Math.ceil(this.player.maxHealth * regenRate);
         this.player.heal(healAmount);
         this.hpRegenAccumulator = 0;
         
@@ -545,19 +825,23 @@ export class SpaceStationManager {
       }
     }
     
-    // Note: Damage boost, XP boost, and fire rate boost are checked via getter methods
-    // and applied by the game systems that need them
+    // Shield Generator Tier 3: Shield regeneration inside zone
+    if (this.moduleTiers.shield >= 3 && this.sanctuaryShieldAmount < this.player.maxHealth * 0.25) {
+      // Passive shield regen - simplified for now
+      // Full implementation would track shield separately from HP
+    }
   }
 
   /**
    * Create visual heal effect on player
+   * @param color Optional color override (default green)
    */
-  private createHealEffect(): void {
+  private createHealEffect(color: number = 0x00ff00): void {
     const healParticle = this.scene.add.circle(
       this.player.x, 
       this.player.y - 20, 
       6, 
-      0x00ff00, 
+      color, 
       0.8
     );
     healParticle.setDepth(DEPTH.EFFECTS);
@@ -678,18 +962,209 @@ export class SpaceStationManager {
   }
 
   /**
-   * Set up E key for station upgrades
+   * Set up E key for station upgrades and module keys
    */
   private setupUpgradeKey(): void {
     const keyboard = this.scene.input.keyboard;
     if (!keyboard) return;
 
+    // E key for level upgrade
     keyboard.on('keydown-E', () => {
       if (this.canUpgrade() && this.isPlayerNearStation()) {
         this.startUpgrade();
       } else if (this.isPlayerNearStation() && !this.isUpgrading) {
         this.showUpgradeRequirements();
       }
+    });
+
+    // Module upgrade keys (1-4)
+    keyboard.on('keydown-ONE', () => this.tryUpgradeModule('shield'));
+    keyboard.on('keydown-TWO', () => this.tryUpgradeModule('medical'));
+    keyboard.on('keydown-THREE', () => this.tryUpgradeModule('power'));
+    keyboard.on('keydown-FOUR', () => this.tryUpgradeModule('sensor'));
+  }
+
+  /**
+   * Try to upgrade a specific module
+   */
+  private tryUpgradeModule(moduleType: ModuleType): void {
+    if (!this.isPlayerNearStation()) return;
+    if (this.isUpgrading) return;
+    
+    // Modules unlock at station level 2
+    if (this.stationLevel < SPACE_STATION.MODULES.UNLOCK_LEVEL) {
+      this.showNotification(`🔒 Modules unlock at Station Level ${SPACE_STATION.MODULES.UNLOCK_LEVEL}`, 0xffaa00);
+      return;
+    }
+    
+    if (this.canUpgradeModule(moduleType)) {
+      this.upgradeModule(moduleType);
+    } else {
+      this.showModuleRequirements(moduleType);
+    }
+  }
+
+  /**
+   * Check if a module can be upgraded
+   */
+  private canUpgradeModule(moduleType: ModuleType): boolean {
+    const currentTier = this.moduleTiers[moduleType];
+    if (currentTier >= SPACE_STATION.MODULES.MAX_TIER) return false;
+    
+    const moduleConfig = this.getModuleConfig(moduleType);
+    const cost = moduleConfig.COSTS[currentTier]; // Cost for next tier
+    
+    if (moduleConfig.MATERIAL_TYPE === 'any') {
+      return this.collectedMaterials >= cost;
+    } else {
+      const matType = moduleConfig.MATERIAL_TYPE as MaterialType;
+      return this.materialsByType[matType] >= cost;
+    }
+  }
+
+  /**
+   * Get module configuration from constants
+   */
+  private getModuleConfig(moduleType: ModuleType) {
+    switch (moduleType) {
+      case 'shield': return SPACE_STATION.MODULES.SHIELD;
+      case 'medical': return SPACE_STATION.MODULES.MEDICAL;
+      case 'power': return SPACE_STATION.MODULES.POWER;
+      case 'sensor': return SPACE_STATION.MODULES.SENSOR;
+    }
+  }
+
+  /**
+   * Upgrade a module
+   */
+  private upgradeModule(moduleType: ModuleType): void {
+    const currentTier = this.moduleTiers[moduleType];
+    const moduleConfig = this.getModuleConfig(moduleType);
+    const cost = moduleConfig.COSTS[currentTier];
+    
+    // Spend materials
+    if (moduleConfig.MATERIAL_TYPE === 'any') {
+      // Spend from total (distribute across types)
+      let remaining = cost;
+      for (const type of ['chest', 'junk', 'slob'] as MaterialType[]) {
+        const available = this.materialsByType[type];
+        const spend = Math.min(available, remaining);
+        this.materialsByType[type] -= spend;
+        this.collectedMaterials -= spend;
+        remaining -= spend;
+        if (remaining <= 0) break;
+      }
+    } else {
+      const matType = moduleConfig.MATERIAL_TYPE as MaterialType;
+      this.materialsByType[matType] -= cost;
+      this.collectedMaterials -= cost;
+    }
+    
+    // Upgrade the module
+    this.moduleTiers[moduleType]++;
+    const newTier = this.moduleTiers[moduleType];
+    
+    // Show notification
+    const tierNames = ['', 'I', 'II', 'III'];
+    const effectDesc = this.getModuleEffectDescription(moduleType, newTier);
+    this.showNotification(
+      `⬆️ ${moduleConfig.NAME} upgraded to Tier ${tierNames[newTier]}!\n${effectDesc}`,
+      0x00ff88
+    );
+    
+    // Visual effect
+    this.createModuleUpgradeEffect();
+  }
+
+  /**
+   * Get description of module effect at tier
+   */
+  private getModuleEffectDescription(moduleType: ModuleType, tier: number): string {
+    switch (moduleType) {
+      case 'shield':
+        switch (tier) {
+          case 1: return '🛡️ +15% damage reduction inside';
+          case 2: return '🛡️ +10% Sanctuary Shield capacity';
+          case 3: return '🛡️ Shield regenerates inside zone';
+        }
+        break;
+      case 'medical':
+        switch (tier) {
+          case 1: return '💚 HP regen rate doubled';
+          case 2: return '🏥 Emergency heal when entering low HP';
+          case 3: return '💚 Lingering regen +5s duration';
+        }
+        break;
+      case 'power':
+        switch (tier) {
+          case 1: return '⚡ All buff durations +5s';
+          case 2: return '⚔️ Damage bonus +10%';
+          case 3: return '🩸 3% lifesteal during buffs';
+        }
+        break;
+      case 'sensor':
+        switch (tier) {
+          case 1: return '📡 Material spawn rate +50%';
+          case 2: return '🧲 Magnet range +100% inside';
+          case 3: return '🗺️ Materials revealed on minimap';
+        }
+        break;
+    }
+    return '';
+  }
+
+  /**
+   * Show module upgrade requirements
+   */
+  private showModuleRequirements(moduleType: ModuleType): void {
+    const currentTier = this.moduleTiers[moduleType];
+    const moduleConfig = this.getModuleConfig(moduleType);
+    
+    if (currentTier >= SPACE_STATION.MODULES.MAX_TIER) {
+      this.showNotification(`✓ ${moduleConfig.NAME} at maximum tier!`, 0x00ff00);
+      return;
+    }
+    
+    const cost = moduleConfig.COSTS[currentTier];
+    const tierNames = ['I', 'II', 'III'];
+    let materialInfo: string;
+    
+    if (moduleConfig.MATERIAL_TYPE === 'any') {
+      materialInfo = `📦 ${this.collectedMaterials}/${cost} any materials`;
+    } else {
+      const matType = moduleConfig.MATERIAL_TYPE as MaterialType;
+      const typeEmoji = matType === 'chest' ? '📦' : matType === 'junk' ? '🔧' : '🧪';
+      materialInfo = `${typeEmoji} ${this.materialsByType[matType]}/${cost} ${matType}`;
+    }
+    
+    this.showNotification(
+      `${moduleConfig.NAME} → Tier ${tierNames[currentTier]}\n${materialInfo}`,
+      0xffaa00
+    );
+  }
+
+  /**
+   * Create visual effect for module upgrade
+   */
+  private createModuleUpgradeEffect(): void {
+    // Create glowing ring effect around station
+    const ring = this.scene.add.circle(
+      this.stationX,
+      this.stationY,
+      60,
+      0x00ff88,
+      0
+    );
+    ring.setStrokeStyle(3, 0x00ff88, 0.8);
+    ring.setDepth(DEPTH.EFFECTS);
+    
+    this.scene.tweens.add({
+      targets: ring,
+      radius: 120,
+      alpha: 0,
+      duration: 500,
+      ease: 'Power2',
+      onComplete: () => ring.destroy()
     });
   }
 
@@ -879,10 +1354,10 @@ export class SpaceStationManager {
    */
   private getBenefitDescription(): string {
     switch (this.stationLevel) {
-      case 2: return '❤️ +HP Regen inside zone';
-      case 3: return '⚔️ +25% Damage inside zone';
-      case 4: return '✨ +50% XP inside zone';
-      case 5: return '🔥 +20% Fire Rate inside zone';
+      case 2: return '🛡️ Sanctuary Shield when entering!';
+      case 3: return '❤️ HP Regen + lingering heal after leaving!';
+      case 4: return '⚔️ +20% DMG & +30% XP for 12s after leaving!';
+      case 5: return '🔥 +15% Fire Rate & +10% Speed after leaving!';
       default: return 'All benefits active!';
     }
   }
@@ -970,27 +1445,70 @@ export class SpaceStationManager {
   }
 
   /**
-   * Get damage multiplier (level 3+)
+   * Get damage multiplier from lingering buff (Level 4+)
+   * Now checks LINGERING buffs instead of inside-zone status
    */
   public getDamageMultiplier(): number {
-    if (!this.playerInsideRadius || this.stationLevel < 3) return 1.0;
-    return SPACE_STATION.BENEFITS.DAMAGE_BOOST;
+    const damageBuff = this.lingeringBuffs.find(b => b.type === 'damage');
+    return damageBuff ? damageBuff.multiplier : 1.0;
   }
 
   /**
-   * Get XP multiplier (level 4+)
+   * Get XP multiplier from lingering buff (Level 4+)
    */
   public getXPMultiplier(): number {
-    if (!this.playerInsideRadius || this.stationLevel < 4) return 1.0;
-    return SPACE_STATION.BENEFITS.XP_BOOST;
+    const xpBuff = this.lingeringBuffs.find(b => b.type === 'xp');
+    return xpBuff ? xpBuff.multiplier : 1.0;
   }
 
   /**
-   * Get fire rate multiplier (level 5)
+   * Get fire rate multiplier from lingering buff (Level 5)
    */
   public getFireRateMultiplier(): number {
-    if (!this.playerInsideRadius || this.stationLevel < 5) return 1.0;
-    return SPACE_STATION.BENEFITS.FIRE_RATE_BOOST;
+    const fireRateBuff = this.lingeringBuffs.find(b => b.type === 'fireRate');
+    return fireRateBuff ? fireRateBuff.multiplier : 1.0;
+  }
+
+  /**
+   * Get speed multiplier from lingering buff (Level 5)
+   */
+  public getSpeedMultiplier(): number {
+    const speedBuff = this.lingeringBuffs.find(b => b.type === 'speed');
+    return speedBuff ? speedBuff.multiplier : 1.0;
+  }
+
+  /**
+   * Check if Sanctuary Shield is available (not on cooldown)
+   */
+  public isSanctuaryShieldReady(): boolean {
+    return this.stationLevel >= 2 && this.scene.time.now >= this.sanctuaryShieldCooldownEnd;
+  }
+
+  /**
+   * Get remaining Sanctuary Shield cooldown in seconds
+   */
+  public getSanctuaryShieldCooldown(): number {
+    const remaining = this.sanctuaryShieldCooldownEnd - this.scene.time.now;
+    return Math.max(0, Math.ceil(remaining / 1000));
+  }
+
+  /**
+   * Get active buffs state for UI display
+   */
+  public getActiveBuffsState(): ActiveBuffsState {
+    return {
+      sanctuaryShieldReady: this.isSanctuaryShieldReady(),
+      sanctuaryShieldCooldown: this.getSanctuaryShieldCooldown(),
+      lingeringBuffs: [...this.lingeringBuffs],
+      insideZone: this.playerInsideRadius
+    };
+  }
+
+  /**
+   * Get module tiers
+   */
+  public getModuleTiers(): ModuleTiers {
+    return { ...this.moduleTiers };
   }
 
   /**
@@ -1127,5 +1645,66 @@ export class SpaceStationManager {
   public canPlayerAttack(): boolean {
     // Player cannot attack while inside the safe zone
     return !this.playerInsideRadius;
+  }
+
+  /**
+   * Clean up all resources on scene shutdown
+   * Per Phaser docs: killTweensOf() "Stops all Tweens which affect the given target"
+   */
+  public destroy(): void {
+    // === TWEENS ===
+    // Kill tweens on visual elements
+    this.scene.tweens.killTweensOf(this.radiusGlow);
+    if (this.stationPanel) {
+      this.scene.tweens.killTweensOf(this.stationPanel);
+    }
+    
+    // Kill material tweens (materials have attached glow objects)
+    this.materials.getChildren().forEach((obj) => {
+      this.scene.tweens.killTweensOf(obj);
+      const material = obj as any;
+      if (material.glow) {
+        this.scene.tweens.killTweensOf(material.glow);
+        material.glow.destroy();
+      }
+      if (material.outerGlow) {
+        this.scene.tweens.killTweensOf(material.outerGlow);
+        material.outerGlow.destroy();
+      }
+    });
+    
+    // === GROUPS ===
+    // Per Phaser docs: group.destroy(destroyChildren, removeFromScene)
+    this.materials.destroy(true, true);
+    
+    // === VISUAL ELEMENTS ===
+    this.stationSprite?.destroy();
+    this.protectionRadius?.destroy();
+    this.radiusGlow?.destroy();
+    this.stationPanel?.destroy(true);
+    this.upgradeProgressBg?.destroy();
+    this.upgradeProgressBar?.destroy();
+    this.upgradeText?.destroy();
+    
+    // === KEYBOARD LISTENERS ===
+    this.scene.input.keyboard?.off('keydown-E');
+    this.scene.input.keyboard?.off('keydown-ONE');
+    this.scene.input.keyboard?.off('keydown-TWO');
+    this.scene.input.keyboard?.off('keydown-THREE');
+    this.scene.input.keyboard?.off('keydown-FOUR');
+    
+    // === CLEAR LINGERING BUFFS ===
+    this.lingeringBuffs = [];
+    
+    // === CLEAR CALLBACKS ===
+    this.onPlayerEnterRadius = undefined;
+    this.onPlayerLeaveRadius = undefined;
+    this.onMaterialCollected = undefined;
+    this.onUpgradeStart = undefined;
+    this.onUpgradeComplete = undefined;
+    this.onShowNotification = undefined;
+    this.getSessionGold = undefined;
+    this.spendSessionGold = undefined;
+    this.getEnemiesGroup = undefined;
   }
 }

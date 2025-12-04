@@ -34,11 +34,11 @@ export const SPAWN_INTERVAL_DECREASE_RATE = 50; // ms decrease per wave
 
 // Wave Configuration
 export const WAVE_DURATION = 30000; // 30 seconds per wave
-export const MAX_ENEMIES_ON_SCREEN = 125; // 2.5x original 50
+export const MAX_ENEMIES_ON_SCREEN = 90; // Balanced for gameplay (original 50, was 125)
 
 // XP and Leveling
 export const BASE_XP_TO_LEVEL = 10;
-export const XP_SCALING_FACTOR = 1.5;
+export const XP_SCALING_FACTOR = 1.35; // Smoother progression (was 1.5)
 export const XP_GEM_VALUE = 1;
 
 // Game Timer
@@ -104,15 +104,17 @@ export const DEPTH = {
 
 // Space Station Configuration
 export const SPACE_STATION = {
-  // Base radius at level 1 (protection zone) - 75% larger than original
-  BASE_RADIUS: 263,
-  // Radius increase per level (scaled proportionally)
-  RADIUS_PER_LEVEL: 88,
-  // Maximum level (5 stations)
+  // Base radius at level 1 (protection zone)
+  BASE_RADIUS: 200,
+  // Radius increase per level (Level 5 gets bonus)
+  RADIUS_PER_LEVEL: 50,
+  // Level 5 bonus radius
+  LEVEL_5_RADIUS_BONUS: 100, // +50% larger at max level
+  // Maximum level
   MAX_LEVEL: 5,
   // Base upgrade time in ms (5 seconds)
   BASE_UPGRADE_TIME: 5000,
-  // Additional time per level in ms (5 seconds more per level)
+  // Additional time per level in ms
   UPGRADE_TIME_PER_LEVEL: 5000,
   // Material spawn interval in ms (every 20 seconds)
   MATERIAL_SPAWN_INTERVAL: 20000,
@@ -124,21 +126,95 @@ export const SPACE_STATION = {
   // Upgrade costs per level [gold, materials]
   UPGRADE_COSTS: [
     [0, 0],       // Level 1 (free/starting)
-    [50, 3],      // Level 2
-    [100, 5],     // Level 3
-    [200, 8],     // Level 4
-    [400, 12],    // Level 5
+    [50, 3],      // Level 2 - Sanctuary Shield
+    [100, 5],     // Level 3 - HP Regen
+    [200, 8],     // Level 4 - Combat Buffs
+    [400, 12],    // Level 5 - Ultimate Station
   ],
-  // Benefits per level
+  
+  // === LEVEL BENEFITS (Revised for Lingering Buff System) ===
   BENEFITS: {
-    // Level 2: HP regen per second while inside (% of max HP)
-    HP_REGEN_RATE: 0.02,      // 2% per second
-    // Level 3: Damage boost while inside
-    DAMAGE_BOOST: 1.25,       // +25%
-    // Level 4: XP multiplier while inside
-    XP_BOOST: 1.5,            // +50%
-    // Level 5: Fire rate boost while inside
-    FIRE_RATE_BOOST: 1.2,     // +20%
+    // Level 2: Sanctuary Shield - temporary shield on entering zone
+    SANCTUARY_SHIELD: {
+      PERCENT: 0.15,           // 15% of max HP as shield
+      COOLDOWN: 30000,         // 30 second cooldown
+    },
+    
+    // Level 3: HP Regeneration
+    HP_REGEN: {
+      RATE_INSIDE: 0.02,       // 2% per second while inside
+      RATE_LINGERING: 0.005,   // 0.5% per second after leaving
+      LINGER_DURATION: 10000,  // 10 seconds after leaving
+    },
+    
+    // Level 4: Combat Buffs (LINGERING - apply after leaving zone)
+    COMBAT_BUFFS: {
+      DAMAGE_BOOST: 1.20,      // +20% damage
+      XP_BOOST: 1.30,          // +30% XP
+      DURATION: 12000,         // 12 seconds after leaving
+    },
+    
+    // Level 5: Ultimate Buffs (LINGERING)
+    ULTIMATE_BUFFS: {
+      FIRE_RATE_BOOST: 1.15,   // +15% fire rate
+      SPEED_BOOST: 1.10,       // +10% movement speed
+      DURATION: 12000,         // 12 seconds after leaving
+    },
+  },
+  
+  // === STATION MODULES (Horizontal Progression) ===
+  MODULES: {
+    // Unlock modules at station level 2
+    UNLOCK_LEVEL: 2,
+    MAX_TIER: 3,
+    
+    // Shield Generator - Uses JUNK materials
+    SHIELD: {
+      NAME: 'Shield Generator',
+      MATERIAL_TYPE: 'junk',
+      COSTS: [5, 10, 15], // Tier 1, 2, 3
+      EFFECTS: {
+        TIER_1: { DAMAGE_REDUCTION: 0.15 },           // 15% less damage inside
+        TIER_2: { SHIELD_BONUS: 0.10 },               // +10% shield capacity
+        TIER_3: { SHIELD_REGEN_RATE: 0.01 },          // 1% shield regen/s inside
+      },
+    },
+    
+    // Medical Bay - Uses CHEST materials
+    MEDICAL: {
+      NAME: 'Medical Bay',
+      MATERIAL_TYPE: 'chest',
+      COSTS: [5, 10, 15],
+      EFFECTS: {
+        TIER_1: { REGEN_MULTIPLIER: 2.0 },            // Double HP regen rate
+        TIER_2: { EMERGENCY_HEAL_THRESHOLD: 0.30, EMERGENCY_HEAL_AMOUNT: 0.20 }, // 20% heal when entering below 30% HP
+        TIER_3: { LINGER_DURATION_BONUS: 5000 },      // +5s lingering regen
+      },
+    },
+    
+    // Power Core - Uses SLOB materials
+    POWER: {
+      NAME: 'Power Core',
+      MATERIAL_TYPE: 'slob',
+      COSTS: [5, 10, 15],
+      EFFECTS: {
+        TIER_1: { BUFF_DURATION_BONUS: 5000 },        // +5s to all lingering buffs
+        TIER_2: { DAMAGE_BONUS: 0.10 },               // +10% to damage bonus
+        TIER_3: { LIFESTEAL: 0.03 },                  // 3% lifesteal during buffs
+      },
+    },
+    
+    // Sensor Array - Uses ANY materials
+    SENSOR: {
+      NAME: 'Sensor Array',
+      MATERIAL_TYPE: 'any',
+      COSTS: [5, 10, 15],
+      EFFECTS: {
+        TIER_1: { MATERIAL_SPAWN_RATE: 1.5 },         // 50% faster material spawns
+        TIER_2: { MAGNET_RANGE_BONUS: 1.0 },          // +100% magnet range inside
+        TIER_3: { MINIMAP_REVEAL: true },             // Reveal materials on minimap
+      },
+    },
   },
 } as const;
 
